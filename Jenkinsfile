@@ -28,14 +28,20 @@ pipeline {
       }
     }
     stage('SonarQube Analysis') {
-        steps {
-            echo '🔍 Étape 6 : Analyse qualité avec SonarQube + JaCoCo...'
-            withSonarQubeEnv('sonarqube') {
-            withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-            sh 'mvn -B clean verify sonar:sonar -DskipTests=false'
+            steps {
+                withSonarQubeEnv('sonarqube') {
+                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                        sh """
+                            mvn sonar:sonar \
+                              -Dsonar.projectKey=eventsProject \
+                              -Dsonar.host.url=http://sonarqube:9000 \
+                              -Dsonar.login=${SONAR_TOKEN} \
+                              -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+                        """
+                    }
+                }
             }
         }
-    }
 
 
     stage('Package') {
