@@ -43,6 +43,22 @@ pipeline {
     }
   }
 
+    stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('sonarqube') {
+                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                        sh """
+                            mvn sonar:sonar \
+                              -Dsonar.projectKey=eventsProject \
+                              -Dsonar.host.url=http://sonarqube:9000 \
+                              -Dsonar.login=${SONAR_TOKEN} \
+                              -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+                        """
+                    }
+                }
+            }
+        }
+
   post {
     success {
       echo '✅ Build terminé avec succès (Java 17 + H2 Test).'
