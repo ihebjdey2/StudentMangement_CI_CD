@@ -28,13 +28,13 @@ pipeline {
       }
     }
     stage('SonarQube Analysis') {
-  steps {
-    echo '🔍 Étape 6 : Analyse qualité avec SonarQube + JaCoCo...'
-    withSonarQubeEnv('sonar') {
-      sh 'mvn -B clean verify sonar:sonar -DskipTests=false'
+        steps {
+            echo '🔍 Étape 6 : Analyse qualité avec SonarQube + JaCoCo...'
+            withSonarQubeEnv('sonar') {
+            sh 'mvn -B clean verify sonar:sonar -DskipTests=false'
+            }
+        }
     }
-  }
-}
 
 
     stage('Package') {
