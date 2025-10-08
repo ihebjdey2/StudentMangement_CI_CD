@@ -84,7 +84,7 @@ pipeline {
         withCredentials([usernamePassword(credentialsId: 'nexus-creds', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
           withMaven(
             maven: 'M3',
-            globalMavenSettingsConfig: 'MyGlobalSettings'
+            globalMavenSettingsConfig: '8519829a-e200-4e97-84cf-0555399a1dc7'
           ) {
             // 👉 Les credentials sont déjà utilisés via settings.xml
             // Pas besoin de passer nexus.username / password
