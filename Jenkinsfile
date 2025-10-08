@@ -18,7 +18,7 @@ pipeline {
         SONARQUBE_ENV = 'SonarQube'             // 🔹 nom du serveur configuré dans Jenkins
         SONAR_TOKEN_ID = 'sonar-token'
         NEXUS_CREDS = 'nexus-creds'
-        MVN_SETTINGS = '45b9f137-add9-4bd7-968e-a424d3e0f31c	'  // id de ton settings.xml dans Jenkins
+        MVN_SETTINGS = 'global-maven-settings'
     }
 
     stages {
