@@ -78,23 +78,23 @@ pipeline {
     // -------------------------------
     // 6️⃣ Étape : Déploiement Nexus
     // -------------------------------
-   stage('Deploy to Nexus') {
-  steps {
-    echo '🔹 Étape 6 : Déploiement du jar sur Nexus Repository...'
+    stage('Deploy to Nexus') {
+      steps {
+         echo '🔹 Étape 6 : Déploiement du jar sur Nexus Repository...'
     withCredentials([usernamePassword(credentialsId: 'nexus-creds', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
       withMaven(
         maven: 'M3',
         globalMavenSettingsConfig: 'MyGlobalSettings'
       ) {
-        sh """
-          mvn deploy -DskipTests \
-            -Dnexus.username=$NEXUS_USER \
-            -Dnexus.password=$NEXUS_PASS
-        """
+          sh """
+            mvn deploy -DskipTests \
+              -Dnexus.username=$NEXUS_USER \
+              -Dnexus.password=$NEXUS_PASS
+          """
+        }
       }
     }
   }
-}
 
   // -------------------------------
   // Post actions globales
