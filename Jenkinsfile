@@ -61,7 +61,7 @@ pipeline {
     stage('Package') {
       steps {
         echo '🔹 Étape 4 : Création du jar final...'
-        sh 'mvn -B -DskipTests=true package'
+        sh 'mvn -B -DskipTests package'
       }
     }
 
@@ -80,17 +80,16 @@ pipeline {
     // -------------------------------
     stage('Deploy to Nexus') {
       steps {
-         echo '🔹 Étape 6 : Déploiement du jar sur Nexus Repository...'
-    withCredentials([usernamePassword(credentialsId: 'nexus-creds', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
-      withMaven(
-        maven: 'M3',
-        globalMavenSettingsConfig: 'MyGlobalSettings'
-      ) {
-          sh """
-            mvn deploy -DskipTests \
-              -Dnexus.username=$NEXUS_USER \
-              -Dnexus.password=$NEXUS_PASS
-          """
+        echo '🔹 Étape 6 : Déploiement du jar sur Nexus Repository...'
+        withCredentials([usernamePassword(credentialsId: 'nexus-creds', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+          withMaven(
+            maven: 'M3',
+            globalMavenSettingsConfig: 'MyGlobalSettings'
+          ) {
+            // 👉 Les credentials sont déjà utilisés via settings.xml
+            // Pas besoin de passer nexus.username / password
+            sh 'mvn clean deploy -DskipTests'
+          }
         }
       }
     }
