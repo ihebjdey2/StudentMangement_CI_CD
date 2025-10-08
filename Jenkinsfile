@@ -9,6 +9,10 @@ pipeline {
   options { timestamps() }
 
   stages {
+
+    // -------------------------------
+    // 1️⃣ Étape : Récupération du code
+    // -------------------------------
     stage('Checkout') {
       steps {
         echo '🔹 Étape 1 : Récupération du code depuis GitHub...'
@@ -16,6 +20,9 @@ pipeline {
       }
     }
 
+    // -------------------------------
+    // 2️⃣ Étape : Compilation + Tests
+    // -------------------------------
     stage('Build & Test') {
       steps {
         echo '🔹 Étape 2 : Compilation et tests avec H2...'
@@ -27,46 +34,73 @@ pipeline {
         }
       }
     }
+
+    // -------------------------------
+    // 3️⃣ Étape : Analyse SonarQube
+    // -------------------------------
     stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('sonarqube') {
-                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                        sh """
-                            mvn sonar:sonar \
-                              -Dsonar.projectKey=eventsProject \
-                              -Dsonar.host.url=http://sonarqube:9000 \
-                              -Dsonar.login=${SONAR_TOKEN} \
-                              -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-                        """
-                    }
-                }
-            }
+      steps {
+        echo '🔹 Étape 3 : Analyse de qualité avec SonarQube...'
+        withSonarQubeEnv('sonarqube') {
+          withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+            sh """
+              mvn sonar:sonar \
+                -Dsonar.projectKey=student-management \
+                -Dsonar.host.url=http://sonarqube:9000 \
+                -Dsonar.login=${SONAR_TOKEN} \
+                -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+            """
+          }
         }
+      }
+    }
 
-
+    // -------------------------------
+    // 4️⃣ Étape : Packaging (jar)
+    // -------------------------------
     stage('Package') {
       steps {
-        echo '🔹 Étape 3 : Création du jar final...'
+        echo '🔹 Étape 4 : Création du jar final...'
         sh 'mvn -B -DskipTests=true package'
       }
     }
 
+    // -------------------------------
+    // 5️⃣ Étape : Archivage du jar
+    // -------------------------------
     stage('Archive') {
       steps {
-        echo '🔹 Étape 4 : Archivage du jar généré...'
+        echo '🔹 Étape 5 : Archivage du jar généré...'
         archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+      }
+    }
+
+    // -------------------------------
+    // 6️⃣ Étape : Déploiement Nexus
+    // -------------------------------
+    stage('Deploy to Nexus') {
+      steps {
+        echo '🔹 Étape 6 : Déploiement du jar sur Nexus Repository...'
+        withCredentials([usernamePassword(credentialsId: 'nexus-creds', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+          sh """
+            mvn deploy -DskipTests \
+              -Dnexus.username=$NEXUS_USER \
+              -Dnexus.password=$NEXUS_PASS
+          """
+        }
       }
     }
   }
 
-  
-
+  // -------------------------------
+  // Post actions globales
+  // -------------------------------
   post {
     success {
-      echo '✅ Build terminé avec succès (Java 17 + H2 Test).'
+      echo '✅ Pipeline terminé avec succès (Build + Tests + Sonar + Nexus).'
     }
     failure {
-      echo '❌ Échec du build ! Vérifie les logs Jenkins.'
+      echo '❌ Échec du pipeline ! Vérifie les logs Jenkins.'
     }
   }
 }
