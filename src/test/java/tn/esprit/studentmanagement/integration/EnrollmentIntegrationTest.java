@@ -9,11 +9,13 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.test.web.servlet.MockMvc;
 import tn.esprit.studentmanagement.entities.Course;
 import tn.esprit.studentmanagement.entities.Enrollment;
-import tn.esprit.studentmanagement.entities.Student;
 import tn.esprit.studentmanagement.entities.Status;
+import tn.esprit.studentmanagement.entities.Student;
 import tn.esprit.studentmanagement.repositories.CourseRepository;
 import tn.esprit.studentmanagement.repositories.EnrollmentRepository;
 import tn.esprit.studentmanagement.repositories.StudentRepository;
@@ -26,11 +28,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * ✅ Test d’intégration complet pour le module Enrollment :
- * Vérifie le flux Controller → Service → Repository → Base H2
+ * Compatible avec @RequestMapping("/Enrollment") (avec majuscule)
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@AutoConfigureTestDatabase
+@AutoConfigureTestDatabase // force H2 en mémoire
+@ActiveProfiles("test")
+@Transactional
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class EnrollmentIntegrationTest {
 
@@ -49,10 +53,13 @@ class EnrollmentIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    // ============================
+    // 🔹 Test 1 : Création
+    // ============================
     @Test
-    @DisplayName("🧪 Créer une inscription et vérifier la persistance")
+    @DisplayName("🧪 Créer une inscription et vérifier sa persistance")
     void testCreateEnrollmentAndRetrieve() throws Exception {
-        // 🔹 Préparer un étudiant et un cours dans la base H2
+        // ✅ Préparer un étudiant et un cours dans la base H2
         Student s = new Student();
         s.setFirstName("Iheb");
         s.setLastName("Jdey");
@@ -63,9 +70,9 @@ class EnrollmentIntegrationTest {
         c.setName("DevOps");
         c.setCode("DV101");
         c.setCredit(4);
-        courseRepository.save(c);
+        c = courseRepository.save(c);
 
-        // 🔹 Créer une inscription
+        // ✅ Créer une inscription
         Enrollment e = new Enrollment();
         e.setGrade(18.5);
         e.setStatus(Status.ACTIVE);
@@ -82,14 +89,18 @@ class EnrollmentIntegrationTest {
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
 
         // 🔹 Vérification en base
-        assertThat(enrollmentRepository.findAll()).hasSize(1);
-        assertThat(enrollmentRepository.findAll().get(0).getStudent().getFirstName()).isEqualTo("Iheb");
+        assertThat(enrollmentRepository.count()).isEqualTo(1);
+        Enrollment saved = enrollmentRepository.findAll().get(0);
+        assertThat(saved.getStudent().getFirstName()).isEqualTo("Iheb");
+        assertThat(saved.getCourse().getName()).isEqualTo("DevOps");
     }
 
+    // ============================
+    // 🔹 Test 2 : Lecture (toutes)
+    // ============================
     @Test
-    @DisplayName("📋 Récupérer toutes les inscriptions")
+    @DisplayName("📋 Récupérer toutes les inscriptions via l’API")
     void testGetAllEnrollments() throws Exception {
-        // 🔹 Préparer données
         Student s = new Student();
         s.setFirstName("Sara");
         s.setLastName("Ben Ali");
@@ -100,7 +111,7 @@ class EnrollmentIntegrationTest {
         c.setName("Spring Boot");
         c.setCode("SB202");
         c.setCredit(3);
-        courseRepository.save(c);
+        c = courseRepository.save(c);
 
         Enrollment e = new Enrollment();
         e.setGrade(16.0);
@@ -110,19 +121,23 @@ class EnrollmentIntegrationTest {
         e.setCourse(c);
         enrollmentRepository.save(e);
 
-        // 🔹 Appel du contrôleur
         mockMvc.perform(get("/Enrollment/getAllEnrollment"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].grade").value(16.0))
                 .andExpect(jsonPath("$[0].status").value("COMPLETED"));
+
+        assertThat(enrollmentRepository.count()).isEqualTo(1);
     }
 
+    // ============================
+    // 🔹 Test 3 : Lecture par ID
+    // ============================
     @Test
     @DisplayName("🔍 Récupérer une inscription par ID")
     void testGetEnrollmentById() throws Exception {
-        // 🔹 Préparer données
         Student s = new Student();
         s.setFirstName("Youssef");
+        s.setLastName("Trabelsi");
         s.setEmail("youssef@example.com");
         s = studentRepository.save(s);
 
@@ -130,7 +145,7 @@ class EnrollmentIntegrationTest {
         c.setName("Architecture Logicielle");
         c.setCode("AR300");
         c.setCredit(5);
-        courseRepository.save(c);
+        c = courseRepository.save(c);
 
         Enrollment e = new Enrollment();
         e.setGrade(14.5);
@@ -140,19 +155,21 @@ class EnrollmentIntegrationTest {
         e.setCourse(c);
         Enrollment saved = enrollmentRepository.save(e);
 
-        // 🔹 Appel du contrôleur
         mockMvc.perform(get("/Enrollment/getEnrollment/" + saved.getIdEnrollment()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.grade").value(14.5))
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
     }
 
+    // ============================
+    // 🔹 Test 4 : Suppression
+    // ============================
     @Test
-    @DisplayName("❌ Supprimer une inscription")
+    @DisplayName("❌ Supprimer une inscription et vérifier suppression")
     void testDeleteEnrollment() throws Exception {
-        // 🔹 Préparer données
         Student s = new Student();
         s.setFirstName("Amira");
+        s.setLastName("Hammami");
         s.setEmail("amira@example.com");
         s = studentRepository.save(s);
 
@@ -160,7 +177,7 @@ class EnrollmentIntegrationTest {
         c.setName("Microservices");
         c.setCode("MS400");
         c.setCredit(6);
-        courseRepository.save(c);
+        c = courseRepository.save(c);
 
         Enrollment e = new Enrollment();
         e.setGrade(19.0);
@@ -170,11 +187,9 @@ class EnrollmentIntegrationTest {
         e.setCourse(c);
         Enrollment saved = enrollmentRepository.save(e);
 
-        // 🔹 Appel du contrôleur pour suppression
         mockMvc.perform(delete("/Enrollment/deleteEnrollment/" + saved.getIdEnrollment()))
                 .andExpect(status().isOk());
 
-        // 🔹 Vérifier que la suppression a bien eu lieu
         assertThat(enrollmentRepository.findAll()).isEmpty();
     }
 }

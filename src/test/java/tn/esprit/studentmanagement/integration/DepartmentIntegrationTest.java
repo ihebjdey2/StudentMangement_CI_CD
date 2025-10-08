@@ -9,6 +9,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.test.web.servlet.MockMvc;
 import tn.esprit.studentmanagement.entities.Department;
 import tn.esprit.studentmanagement.repositories.DepartmentRepository;
@@ -19,11 +21,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * ✅ Test d’intégration complet pour le module Department :
- * Controller + Service + Repository (base H2 réelle)
+ * Controller + Service + Repository (base H2)
+ * Compatible avec @RequestMapping("/Depatment")
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@AutoConfigureTestDatabase
+@AutoConfigureTestDatabase // H2 auto
+@ActiveProfiles("test")
+@Transactional
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class DepartmentIntegrationTest {
 
@@ -36,6 +41,9 @@ class DepartmentIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    // ============================
+    // 🔹 Test 1 : Création
+    // ============================
     @Test
     @DisplayName("🧪 Créer un département et vérifier sa persistance")
     void testCreateDepartmentAndRetrieve() throws Exception {
@@ -45,7 +53,7 @@ class DepartmentIntegrationTest {
         dep.setHead("Dr. Majdi");
         dep.setPhone("71234567");
 
-        // 🔹 Appel réel du contrôleur (POST /Depatment/createDepartment)
+        // Appel du contrôleur réel (respecte la casse du mapping)
         mockMvc.perform(post("/Depatment/createDepartment")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dep)))
@@ -53,13 +61,17 @@ class DepartmentIntegrationTest {
                 .andExpect(jsonPath("$.name").value("Informatique"))
                 .andExpect(jsonPath("$.head").value("Dr. Majdi"));
 
-        // 🔹 Vérifie la persistance réelle
-        assertThat(departmentRepository.findAll()).hasSize(1);
-        assertThat(departmentRepository.findAll().get(0).getLocation()).isEqualTo("Bloc A");
+        assertThat(departmentRepository.count()).isEqualTo(1);
+        Department saved = departmentRepository.findAll().get(0);
+        assertThat(saved.getLocation()).isEqualTo("Bloc A");
+        assertThat(saved.getPhone()).isEqualTo("71234567");
     }
 
+    // ============================
+    // 🔹 Test 2 : Lecture (tous)
+    // ============================
     @Test
-    @DisplayName("📋 Récupérer tous les départements")
+    @DisplayName("📋 Récupérer tous les départements via l’API")
     void testGetAllDepartments() throws Exception {
         Department d1 = new Department();
         d1.setName("Mécatronique");
@@ -71,8 +83,13 @@ class DepartmentIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].name").value("Mécatronique"))
                 .andExpect(jsonPath("$[0].location").value("Bloc B"));
+
+        assertThat(departmentRepository.count()).isEqualTo(1);
     }
 
+    // ============================
+    // 🔹 Test 3 : Lecture par ID
+    // ============================
     @Test
     @DisplayName("🔍 Récupérer un département par ID")
     void testGetDepartmentById() throws Exception {
@@ -88,8 +105,11 @@ class DepartmentIntegrationTest {
                 .andExpect(jsonPath("$.head").value("Mr. Fakhfakh"));
     }
 
+    // ============================
+    // 🔹 Test 4 : Suppression
+    // ============================
     @Test
-    @DisplayName("❌ Supprimer un département")
+    @DisplayName("❌ Supprimer un département et vérifier suppression")
     void testDeleteDepartment() throws Exception {
         Department dep = new Department();
         dep.setName("Finance");
@@ -97,11 +117,9 @@ class DepartmentIntegrationTest {
         dep.setHead("Mme. Trabelsi");
         Department saved = departmentRepository.save(dep);
 
-        // 🔹 Appel de la suppression
         mockMvc.perform(delete("/Depatment/deleteDepartment/" + saved.getIdDepartment()))
                 .andExpect(status().isOk());
 
-        // 🔹 Vérifie la suppression en base
         assertThat(departmentRepository.findAll()).isEmpty();
     }
 }
