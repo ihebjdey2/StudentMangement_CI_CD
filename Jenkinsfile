@@ -115,6 +115,16 @@ pipeline {
                 '''
             }
         }
+        
+        stage('Monitoring Stack') {
+            steps {
+                sh '''
+                docker compose -f docker-compose.monitoring.yml pull || true
+                docker compose -f docker-compose.monitoring.yml up -d
+                '''
+            }
+            }
+
     }
 
     // 🧩 Étape finale : Résumé global
