@@ -12,7 +12,7 @@ pipeline {
     }
 
     environment {
-        REGISTRY = 'ihebjdey'                   // 🔹 ton nom DockerHub
+        REGISTRY = 'iheb7u7'                // 🔹 ton nom DockerHub
         IMAGE_NAME = 'student-management'       // 🔹 nom de l'image Docker
         DOCKERHUB_CREDENTIALS = 'dockerhub-credentials'
         SONARQUBE_ENV = 'SonarQube'             // 🔹 nom du serveur configuré dans Jenkins
