@@ -1,4 +1,3 @@
-version: "3.8"
 networks:
   devops-net:
     name: devops-net
@@ -7,47 +6,35 @@ networks:
 services:
   # 🧩 SonarQube - Analyse qualité de code
   sonarqube:
+    container_name: sonarqube
     image: sonarqube:lts-community
     ports:
       - "9000:9000"
     environment:
-      - SONAR_WEB_SYSTEMPASSCODE=monitor123   # 🔐 clé système pour Prometheus
+      - SONAR_WEB_SYSTEMPASSCODE=monitor123
     networks:
       - devops-net
     volumes:
       - sonarqube_data:/opt/sonarqube/data
       - sonarqube_extensions:/opt/sonarqube/extensions
       - sonarqube_logs:/opt/sonarqube/logs
+    restart: always
 
-  # ⚙️ Jenkins - CI/CD
- 
-  
-
-
-  # 📦 Nexus - Gestionnaire de dépendances
+  # 📦 Nexus - Dépôt Maven
   nexus:
+    container_name: nexus
     image: sonatype/nexus3
     ports:
       - "8081:8081"
-    
-    
     volumes:
       - nexus_data:/nexus-data
     networks:
       - devops-net
-
-  # 🚀 Application Spring Boot (Student Management)
-  student-management:
-    image: studentmangement-student-app
-    ports:
-      - "8089:8089"
-    depends_on:
-      - mysql-studentdb
-    networks:
-      - devops-net
+    restart: always
 
   # 🗄️ Base de données MySQL
   mysql-studentdb:
+    container_name: mysql-studentdb
     image: mysql:8.0
     environment:
       - MYSQL_ROOT_PASSWORD=root
@@ -60,8 +47,23 @@ services:
       - mysql_data:/var/lib/mysql
     networks:
       - devops-net
+    restart: always
 
-# 🔗 Réseau partagé pour la stack principale et le monitoring
+  # 🚀 Application Spring Boot (Student Management)
+  student-management:
+    container_name: student-management
+    image: iheb7u7/student-management:latest
+    ports:
+      - "8089:8089"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-studentdb:3306/studentdb
+      - SPRING_DATASOURCE_USERNAME=user
+      - SPRING_DATASOURCE_PASSWORD=password
+    depends_on:
+      - mysql-studentdb
+    networks:
+      - devops-net
+    restart: always
 
 # 💾 Volumes persistants
 volumes:
