@@ -8,7 +8,6 @@ services:
   # 🧩 SonarQube - Analyse qualité de code
   sonarqube:
     image: sonarqube:lts-community
-    container_name: sonarqube
     ports:
       - "9000:9000"
     environment:
@@ -28,7 +27,6 @@ services:
   # 📦 Nexus - Gestionnaire de dépendances
   nexus:
     image: sonatype/nexus3
-    container_name: nexus
     ports:
       - "8081:8081"
     
@@ -41,7 +39,6 @@ services:
   # 🚀 Application Spring Boot (Student Management)
   student-management:
     image: studentmangement-student-app
-    container_name: student-management
     ports:
       - "8089:8089"
     depends_on:
@@ -52,7 +49,6 @@ services:
   # 🗄️ Base de données MySQL
   mysql-studentdb:
     image: mysql:8.0
-    container_name: mysql-studentdb
     environment:
       - MYSQL_ROOT_PASSWORD=root
       - MYSQL_DATABASE=studentdb
