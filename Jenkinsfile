@@ -109,9 +109,34 @@ pipeline {
             steps {
                 echo '🔹 Étape 8 : Lancement du déploiement via docker-compose...'
                 sh '''
+                    echo "🧠 Vérification des services existants (SonarQube, Nexus)..."
+                    # Si SonarQube ou Nexus sont déjà actifs → ne rien faire
+                    if [ ! "$(docker ps -q -f name=nexus)" ]; then
+                      if [ "$(docker ps -aq -f status=exited -f name=nexus)" ]; then
+                        echo "▶️ Redémarrage du conteneur Nexus existant..."
+                        docker start nexus
+                      else
+                        echo "🚀 Création du conteneur Nexus..."
+                        docker run -d --name nexus --network devops-net -p 8081:8081 sonatype/nexus3:latest
+                      fi
+                    fi
+
+                    if [ ! "$(docker ps -q -f name=sonarqube)" ]; then
+                      if [ "$(docker ps -aq -f status=exited -f name=sonarqube)" ]; then
+                        echo "▶️ Redémarrage du conteneur SonarQube existant..."
+                        docker start sonarqube
+                      else
+                        echo "🚀 Création du conteneur SonarQube..."
+                        docker run -d --name sonarqube --network devops-net -p 9000:9000 sonarqube:lts-community
+                      fi
+                    fi
+
+                    echo "🧱 Préparation du réseau et du déploiement..."
                     docker network create devops-net || true
+
+                    echo "♻️ Lancement du docker-compose (sans recréer Nexus/Sonar)..."
                     docker-compose down || true
-                    docker-compose up -d --build
+                    docker-compose up -d --no-recreate --build
                 '''
             }
         }
