@@ -1,4 +1,8 @@
 version: "3.8"
+networks:
+  devops-net:
+    name: devops-net
+    external: true
 
 services:
   # 🧩 SonarQube - Analyse qualité de code
@@ -16,6 +20,9 @@ services:
       - sonarqube_extensions:/opt/sonarqube/extensions
       - sonarqube_logs:/opt/sonarqube/logs
 
+  # ⚙️ Jenkins - CI/CD
+ 
+  
 
 
   # 📦 Nexus - Gestionnaire de dépendances
@@ -59,9 +66,6 @@ services:
       - devops-net
 
 # 🔗 Réseau partagé pour la stack principale et le monitoring
-networks:
-  devops-net:
-    name: devops-net
 
 # 💾 Volumes persistants
 volumes:
