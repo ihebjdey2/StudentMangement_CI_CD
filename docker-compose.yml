@@ -59,8 +59,6 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-studentdb:3306/studentdb
       - SPRING_DATASOURCE_USERNAME=user
       - SPRING_DATASOURCE_PASSWORD=password
-    depends_on:
-      - mysql-studentdb
     networks:
       - devops-net
     restart: always
