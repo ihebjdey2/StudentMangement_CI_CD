@@ -123,13 +123,21 @@ pipeline {
 }
 
         stage('Monitoring Stack') {
-            steps {
-                sh '''
-                docker compose -f docker-compose.monitoring.yml pull || true
-                docker compose -f docker-compose.monitoring.yml up -d
-                '''
-            }
-            }
+    steps {
+        echo '📊 Déploiement du stack de monitoring (Prometheus + Grafana)...'
+        sh '''
+        cd monitoring
+        echo "📦 Téléchargement des images du stack de monitoring..."
+        docker compose -f docker-compose.yml pull || true
+
+        echo "🚀 Démarrage du stack de monitoring..."
+        docker compose -f docker-compose.yml up -d
+
+        echo "✅ Monitoring stack démarré avec succès !"
+        '''
+    }
+}
+
 
     }
 
