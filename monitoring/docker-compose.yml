@@ -1,15 +1,20 @@
 version: "3.8"
 
 services:
+  # 📊 Prometheus : collecte des métriques
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
     ports:
       - "9090:9090"
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    networks: [devops-net]
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - devops-net
+    restart: always
 
+  # 📈 Grafana : visualisation des métriques
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -18,9 +23,15 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
-    depends_on: [prometheus]
-    networks: [devops-net]
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - devops-net
+    restart: always
 
+  # 🧭 cAdvisor : métriques Docker des conteneurs
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: cadvisor
@@ -31,8 +42,11 @@ services:
       - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
-    networks: [devops-net]
+    networks:
+      - devops-net
+    restart: always
 
+  # ⚙️ Node Exporter : métriques système (CPU, RAM, disque, etc.)
   node-exporter:
     image: prom/node-exporter:latest
     container_name: node-exporter
@@ -47,8 +61,17 @@ services:
       - "--path.procfs=/host/proc"
       - "--path.sysfs=/host/sys"
       - "--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)"
-    networks: [devops-net]
-
+    networks:
+      - devops-net
+    restart: always
+  
+  
+# 🔗 Réseau partagé avec la stack principale
 networks:
   devops-net:
     external: true
+
+# 💾 Volumes persistants
+volumes:
+  prometheus_data:
+  grafana_data:

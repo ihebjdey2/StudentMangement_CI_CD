@@ -1,36 +1,88 @@
-version: "3.9"
+version: "3.8"
 
 services:
-  mysql:
+  # 🧩 SonarQube - Analyse qualité de code
+  sonarqube:
+    image: sonarqube:lts-community
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_WEB_SYSTEMPASSCODE=monitor123   # 🔐 clé système pour Prometheus
+    networks:
+      - devops-net
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+
+  # ⚙️ Jenkins - CI/CD
+ 
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    container_name: jenkins
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - devops-net
+    restart: always
+
+
+
+  # 📦 Nexus - Gestionnaire de dépendances
+  nexus:
+    image: sonatype/nexus3
+    container_name: nexus
+    ports:
+      - "8081:8081"
+    
+    
+    volumes:
+      - nexus_data:/nexus-data
+    networks:
+      - devops-net
+
+  # 🚀 Application Spring Boot (Student Management)
+  student-management:
+    image: studentmangement-student-app
+    container_name: student-management
+    ports:
+      - "8089:8089"
+    depends_on:
+      - mysql-studentdb
+    networks:
+      - devops-net
+
+  # 🗄️ Base de données MySQL
+  mysql-studentdb:
     image: mysql:8.0
     container_name: mysql-studentdb
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: studentdb
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=studentdb
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD=password
     ports:
       - "3308:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
-      - student-network
+      - devops-net
 
-  student-app:
-    build: .
-    container_name: student-management
-    ports:
-      - "8089:8089"
-    depends_on:
-      - mysql
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/studentdb?createDatabaseIfNotExist=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
-    restart: always
-    networks:
-      - student-network
-
+# 🔗 Réseau partagé pour la stack principale et le monitoring
 networks:
-  student-network:
+  devops-net:
+    name: devops-net
 
+# 💾 Volumes persistants
 volumes:
+  jenkins_home:
+  nexus_data:
   mysql_data:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
