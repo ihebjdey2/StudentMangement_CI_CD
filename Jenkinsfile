@@ -23,34 +23,70 @@ pipeline {
 
     stages {
 
-        // 1️⃣ Étape : Récupération du code
+        // 1️⃣ Étape : Récupération du code source
         stage('Checkout') {
             steps {
+                echo "------------------------------------------------------------"
                 echo "🔹 [Checkout] Récupération du code depuis GitHub..."
+                echo "------------------------------------------------------------"
                 checkout scm
             }
         }
 
-        // 2️⃣ Étape : Compilation + Tests
+        // 2️⃣ Étape : Compilation et Tests
         stage('Build & Test') {
             steps {
+                echo "------------------------------------------------------------"
                 echo "🧪 [Build & Test] Compilation du projet et exécution des tests unitaires..."
+                echo "------------------------------------------------------------"
                 sh 'mvn -B clean verify -Dspring.profiles.active=test'
+
+                script {
+                    echo "📊 Extraction du résumé des tests..."
+                    def reportFile = sh(script: "find . -type f -name 'TEST-*.xml' | head -n 1", returnStdout: true).trim()
+
+                    if (reportFile) {
+                        def content = readFile(reportFile)
+                        def tests = (content =~ /tests="([0-9]+)"/)[0][1].toInteger()
+                        def failures = (content =~ /failures="([0-9]+)"/)[0][1].toInteger()
+                        def errors = (content =~ /errors="([0-9]+)"/)[0][1].toInteger()
+                        def skipped = (content =~ /skipped="([0-9]+)"/)[0][1].toInteger()
+                        def passed = tests - failures - errors - skipped
+
+                        echo "------------------------------------------------------------"
+                        echo "🧾 RÉSULTATS DES TESTS UNITAIRES"
+                        echo "------------------------------------------------------------"
+                        echo "🧩 Total de tests exécutés : ${tests}"
+                        echo "✅ Réussis : ${passed}"
+                        echo "❌ Échecs : ${failures}"
+                        echo "💥 Erreurs : ${errors}"
+                        echo "⚠️ Ignorés : ${skipped}"
+                        echo "------------------------------------------------------------"
+
+                        if (failures > 0 || errors > 0) {
+                            error("❌ Certains tests ont échoué (${failures} failures, ${errors} errors). Pipeline interrompu.")
+                        }
+                    } else {
+                        echo "⚠️ Aucun rapport de test trouvé. Vérifie la configuration Maven Surefire."
+                    }
+                }
             }
             post {
-                success {
-                    echo "✅ Tests passés avec succès !"
-                }
                 always {
                     junit '**/target/surefire-reports/*.xml'
+                }
+                success {
+                    echo "✅ Tous les tests unitaires sont passés avec succès."
                 }
             }
         }
 
-        // 3️⃣ Étape : Analyse SonarQube
+        // 3️⃣ Étape : Analyse de qualité SonarQube
         stage('SonarQube Analysis') {
             steps {
-                echo "🔍 [SonarQube] Analyse de la qualité du code en cours..."
+                echo "------------------------------------------------------------"
+                echo "🔍 [SonarQube] Analyse de la qualité du code..."
+                echo "------------------------------------------------------------"
                 withSonarQubeEnv("${SONARQUBE_ENV}") {
                     withCredentials([string(credentialsId: "${SONAR_TOKEN_ID}", variable: 'SONAR_TOKEN')]) {
                         sh """
@@ -65,26 +101,32 @@ pipeline {
             }
         }
 
-        // 4️⃣ Étape : Packaging
+        // 4️⃣ Étape : Création du livrable JAR
         stage('Package') {
             steps {
+                echo "------------------------------------------------------------"
                 echo "📦 [Package] Création du livrable JAR..."
+                echo "------------------------------------------------------------"
                 sh 'mvn -B -DskipTests package'
             }
         }
 
-        // 5️⃣ Étape : Archivage
+        // 5️⃣ Étape : Archivage du livrable
         stage('Archive') {
             steps {
+                echo "------------------------------------------------------------"
                 echo "🗂️ [Archive] Archivage du JAR généré..."
+                echo "------------------------------------------------------------"
                 archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
             }
         }
 
-        // 6️⃣ Étape : Déploiement sur Nexus
+        // 6️⃣ Étape : Déploiement sur Nexus Repository
         stage('Deploy to Nexus') {
             steps {
-                echo "🚀 [Nexus] Déploiement de l’artéfact sur Nexus Repository..."
+                echo "------------------------------------------------------------"
+                echo "🚀 [Nexus] Déploiement de l’artéfact sur Nexus..."
+                echo "------------------------------------------------------------"
                 withCredentials([usernamePassword(credentialsId: "${NEXUS_CREDS}", usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
                     withMaven(maven: 'M3', globalMavenSettingsConfig: "${MVN_SETTINGS}") {
                         sh 'mvn clean deploy -DskipTests'
@@ -96,7 +138,9 @@ pipeline {
         // 7️⃣ Étape : Build & Push Docker Image
         stage('Build & Push Docker Image') {
             steps {
-                echo "🐳 [Docker] Construction et push de l’image Docker vers DockerHub..."
+                echo "------------------------------------------------------------"
+                echo "🐳 [Docker] Construction et publication de l’image Docker..."
+                echo "------------------------------------------------------------"
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', "${DOCKERHUB_CREDENTIALS}") {
                         def image = docker.build("${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}")
@@ -107,10 +151,12 @@ pipeline {
             }
         }
 
-        // 8️⃣ Étape : Déploiement Application
+        // 8️⃣ Étape : Déploiement de l’application
         stage('Deploy Application') {
             steps {
-                echo "🚀 [Deploy] Déploiement de l’application sur Docker Compose..."
+                echo "------------------------------------------------------------"
+                echo "🚀 [Deploy] Déploiement de l’application via Docker Compose..."
+                echo "------------------------------------------------------------"
                 sh '''
                     echo "🧠 Vérification du réseau devops-net..."
                     docker network create devops-net || true
@@ -119,22 +165,24 @@ pipeline {
                     docker stop student-management || true
                     docker rm -f student-management || true
 
-                    echo "🔨 Lancement du nouveau conteneur..."
+                    echo "🔨 Lancement de la nouvelle image..."
                     docker compose -f docker-compose.yml up -d --build student-management
                 '''
             }
         }
 
-        // 9️⃣ Étape : Monitoring Stack
+        // 9️⃣ Étape : Monitoring Stack (Prometheus + Grafana)
         stage('Monitoring Stack') {
             steps {
-                echo "📊 [Monitoring] Déploiement de Prometheus + Grafana..."
+                echo "------------------------------------------------------------"
+                echo "📊 [Monitoring] Déploiement du stack de monitoring..."
+                echo "------------------------------------------------------------"
                 sh '''
                     cd monitoring
-                    echo "📦 Téléchargement des images du stack..."
+                    echo "📦 Téléchargement des images..."
                     docker compose -f docker-compose.yml pull || true
 
-                    echo "🚀 Démarrage du stack de monitoring..."
+                    echo "🚀 Démarrage du stack..."
                     docker compose -f docker-compose.yml up -d
 
                     echo "✅ Monitoring stack démarré avec succès !"
@@ -143,23 +191,23 @@ pipeline {
         }
     }
 
-    // 🧩 Résumé final
+    // 🔚 Résumé global du pipeline
     post {
         success {
             echo ""
             echo "=============================================================="
-            echo "✅ PIPELINE TERMINÉ AVEC SUCCÈS !"
+            echo "✅ PIPELINE TERMINÉ AVEC SUCCÈS 🎯"
             echo "--------------------------------------------------------------"
-            echo "📦  Code compilé et testé"
-            echo "🔍  Analyse SonarQube effectuée → http://localhost:9000"
-            echo "🗂️  Artefact déployé sur Nexus → http://localhost:8081"
-            echo "🐳  Image Docker poussée → https://hub.docker.com/r/${REGISTRY}/${IMAGE_NAME}"
-            echo "🚀  Application déployée → http://localhost:8089/student/swagger-ui/index.html"
+            echo "📦  Code compilé et testé avec succès"
+            echo "🔍  Analyse SonarQube → http://localhost:9000"
+            echo "🗂️  Artefact Nexus → http://localhost:8081"
+            echo "🐳  Image DockerHub → https://hub.docker.com/r/${REGISTRY}/${IMAGE_NAME}"
+            echo "🚀  Application → http://localhost:8089/student/swagger-ui/index.html"
             echo "📈  Monitoring → Grafana: http://localhost:3000 | Prometheus: http://localhost:9090"
             echo "=============================================================="
         }
         failure {
-            echo "❌ Le pipeline a échoué. Vérifie les logs Jenkins pour les détails."
+            echo "❌ Le pipeline a échoué. Consulte les logs Jenkins pour plus de détails."
         }
     }
 }
