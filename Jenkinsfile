@@ -9,13 +9,14 @@ pipeline {
     options {
         timestamps()
         skipDefaultCheckout(false)
+        ansiColor('xterm') // 🎨 Active les couleurs dans les logs
     }
 
     environment {
-        REGISTRY = 'iheb7u7'                // 🔹 ton nom DockerHub
-        IMAGE_NAME = 'student-management'       // 🔹 nom de l'image Docker
+        REGISTRY = 'iheb7u7'
+        IMAGE_NAME = 'student-management'
         DOCKERHUB_CREDENTIALS = 'dockerhub-credentials'
-        SONARQUBE_ENV = 'SonarQube'             // 🔹 nom du serveur configuré dans Jenkins
+        SONARQUBE_ENV = 'SonarQube'
         SONAR_TOKEN_ID = 'sonar-token'
         NEXUS_CREDS = 'nexus-creds'
         MVN_SETTINGS = 'global-maven-settings'
@@ -26,7 +27,7 @@ pipeline {
         // 1️⃣ Étape : Récupération du code
         stage('Checkout') {
             steps {
-                echo '🔹 Étape 1 : Récupération du code depuis GitHub...'
+                echo "\033[1;36m🔹 [Checkout] Récupération du code depuis GitHub...\033[0m"
                 checkout scm
             }
         }
@@ -34,10 +35,13 @@ pipeline {
         // 2️⃣ Étape : Compilation + Tests
         stage('Build & Test') {
             steps {
-                echo '🔹 Étape 2 : Compilation et tests unitaires...'
+                echo "\033[1;33m🧪 [Build & Test] Compilation du projet et exécution des tests unitaires...\033[0m"
                 sh 'mvn -B clean verify -Dspring.profiles.active=test'
             }
             post {
+                success {
+                    echo "\033[1;32m✅ Tests passés avec succès !\033[0m"
+                }
                 always {
                     junit '**/target/surefire-reports/*.xml'
                 }
@@ -47,7 +51,7 @@ pipeline {
         // 3️⃣ Étape : Analyse SonarQube
         stage('SonarQube Analysis') {
             steps {
-                echo '🔹 Étape 3 : Analyse de qualité avec SonarQube...'
+                echo "\033[1;34m🔍 [SonarQube] Analyse de la qualité du code en cours...\033[0m"
                 withSonarQubeEnv("${SONARQUBE_ENV}") {
                     withCredentials([string(credentialsId: "${SONAR_TOKEN_ID}", variable: 'SONAR_TOKEN')]) {
                         sh """
@@ -62,18 +66,18 @@ pipeline {
             }
         }
 
-        // 4️⃣ Étape : Packaging (JAR)
+        // 4️⃣ Étape : Packaging
         stage('Package') {
             steps {
-                echo '🔹 Étape 4 : Création du livrable JAR...'
+                echo "\033[1;35m📦 [Package] Création du livrable JAR...\033[0m"
                 sh 'mvn -B -DskipTests package'
             }
         }
 
-        // 5️⃣ Étape : Archivage du JAR
+        // 5️⃣ Étape : Archivage
         stage('Archive') {
             steps {
-                echo '🔹 Étape 5 : Archivage du JAR généré...'
+                echo "\033[1;36m🗂️ [Archive] Archivage du JAR généré...\033[0m"
                 archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
             }
         }
@@ -81,7 +85,7 @@ pipeline {
         // 6️⃣ Étape : Déploiement sur Nexus
         stage('Deploy to Nexus') {
             steps {
-                echo '🔹 Étape 6 : Déploiement sur Nexus...'
+                echo "\033[1;33m🚀 [Nexus] Déploiement de l’artéfact sur Nexus Repository...\033[0m"
                 withCredentials([usernamePassword(credentialsId: "${NEXUS_CREDS}", usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
                     withMaven(maven: 'M3', globalMavenSettingsConfig: "${MVN_SETTINGS}") {
                         sh 'mvn clean deploy -DskipTests'
@@ -93,7 +97,7 @@ pipeline {
         // 7️⃣ Étape : Build & Push Docker Image
         stage('Build & Push Docker Image') {
             steps {
-                echo '🔹 Étape 7 : Construction et push de l’image Docker...'
+                echo "\033[1;36m🐳 [Docker] Construction et push de l’image Docker vers DockerHub...\033[0m"
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', "${DOCKERHUB_CREDENTIALS}") {
                         def image = docker.build("${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}")
@@ -104,59 +108,57 @@ pipeline {
             }
         }
 
-        // 8️⃣ Étape : Déploiement avec Docker Compose
-      stage('Deploy Application') {
-    steps {
-        echo '🚀 Déploiement de l’application student-management...'
-        sh '''
-            echo "🧠 Vérification du réseau devops-net..."
-            docker network create devops-net || true
+        // 8️⃣ Étape : Déploiement Application
+        stage('Deploy Application') {
+            steps {
+                echo "\033[1;32m🚀 [Deploy] Déploiement de l’application sur Docker Compose...\033[0m"
+                sh '''
+                    echo "🧠 Vérification du réseau devops-net..."
+                    docker network create devops-net || true
 
-            echo "🧹 Suppression ancienne version de l’app..."
-            docker stop student-management || true
-            docker rm -f student-management || true
+                    echo "🧹 Nettoyage de l'ancienne version..."
+                    docker stop student-management || true
+                    docker rm -f student-management || true
 
-            echo "🔨 Déploiement de la nouvelle image..."
-            docker compose -f docker-compose.yml up -d --build student-management
-        '''
-    }
-}
+                    echo "🔨 Lancement du nouveau conteneur..."
+                    docker compose -f docker-compose.yml up -d --build student-management
+                '''
+            }
+        }
 
+        // 9️⃣ Étape : Monitoring Stack
         stage('Monitoring Stack') {
-    steps {
-        echo '📊 Déploiement du stack de monitoring (Prometheus + Grafana)...'
-        sh '''
-        cd monitoring
-        echo "📦 Téléchargement des images du stack de monitoring..."
-        docker compose -f docker-compose.yml pull || true
+            steps {
+                echo "\033[1;34m📊 [Monitoring] Déploiement de Prometheus + Grafana...\033[0m"
+                sh '''
+                    cd monitoring
+                    echo "📦 Téléchargement des images du stack..."
+                    docker compose -f docker-compose.yml pull || true
 
-        echo "🚀 Démarrage du stack de monitoring..."
-        docker compose -f docker-compose.yml up -d
+                    echo "🚀 Démarrage du stack de monitoring..."
+                    docker compose -f docker-compose.yml up -d
 
-        echo "✅ Monitoring stack démarré avec succès !"
-        '''
-    }
-}
-
-
+                    echo "✅ Monitoring stack démarré avec succès !"
+                '''
+            }
+        }
     }
 
-    // 🧩 Étape finale : Résumé global
+    // 🧩 Résumé final
     post {
         success {
-            echo '''
-            ✅ Pipeline terminé avec succès !
-            - Code compilé et testé
-            - Analyse SonarQube effectuée
-            - Artefact déployé sur Nexus
-            - Image Docker poussée sur DockerHub
-            - Application déployée via docker-compose
-
-            🌐 Accès à l’application : http://localhost:8089/student/swagger-ui/index.html
-            '''
+            echo "\n\033[1;32m✅ PIPELINE TERMINÉ AVEC SUCCÈS ! 🎉\033[0m"
+            echo "──────────────────────────────────────────────────────"
+            echo "📦  Code compilé et testé"
+            echo "🔍  Analyse SonarQube effectuée → http://localhost:9000"
+            echo "🗂️  Artefact déployé sur Nexus → http://localhost:8081"
+            echo "🐳  Image Docker poussée → https://hub.docker.com/r/${REGISTRY}/${IMAGE_NAME}"
+            echo "🚀  Application déployée → http://localhost:8089/student/swagger-ui/index.html"
+            echo "📈  Monitoring → Grafana: http://localhost:3000 | Prometheus: http://localhost:9090"
+            echo "──────────────────────────────────────────────────────\n"
         }
         failure {
-            echo '❌ Le pipeline a échoué. Vérifie les logs Jenkins pour les détails.'
+            echo "\033[1;31m❌ Le pipeline a échoué. Vérifie les logs Jenkins pour les détails.\033[0m"
         }
     }
 }
